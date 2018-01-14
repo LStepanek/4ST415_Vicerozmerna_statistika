@@ -1,0 +1,1048 @@
+---
+title: |
+ | Průzkumová analýza dat a metoda hlavních komponent
+subtitle: |
+ | 4ST512 Vícerozměrná statistika
+date: "24\\. října 2017"
+author: Lubomír Štěpánek
+fontsize: 12pt
+geometry: margin = 2.0cm
+bibliography: references.bib
+csl: iso690-numeric-brackets-cs.csl
+output:
+  pdf_document:
+    number_sections: true
+    fig_caption: true
+    includes:
+      in_header: my_styles.tex
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\tableofcontents
+
+\AddToShipoutPictureBG*{%
+  \AtPageLowerLeft{%
+    \hspace{\paperwidth}%
+    \raisebox{\baselineskip}{%
+      \makebox[0pt][r]{{\footnotesize Vysázeno pomocí \textsf{R}-ka, \textsf{YAML}-u, \TeX-u a Bib\TeX-u\quad}}
+}}}
+
+
+\section{Zadání úlohy}
+
+Východiskem je soubor \texttt{du1\_30.sav}, který obsahuje šest vybraných biometrických měr u $254$ žen.
+
+\begin{enumerate}[(i)]
+  \item Prozkoumejme data s ohledem na marginální i sdružené rozdělení veličin a identifikujme případné odchylky od normality a podezřelá pozorování.
+  \item U podezřelých pozorování rozhodněme, zda jsou chybná, případně se pokusme odchylky vysvětlit.
+  \item Dále se zabývejme "dimenzionalitou" dat. Jsou rozměry mezi sebou nezávislé, nebo naopak další proměnné nepřinášejí unikátní informaci?
+  \item Rozhodněme, zda je vhodné pomocí metody hlavních komponent analyzovat kovarianční, nebo korelační matici. Pokuste se interpretovat hlavní komponenty\footnote{Hodnocena bude správnost posouzení jedno- a vícerozměrné normality proměnných (včetně vysvětlení odchylek), identifikace odlehlých pozorování, určení dimenzionality dat, interpretace komponent. Všechny výstupy musí být okomentovány a interpretovány, všechna rozhodnutí musí být zdůvodněna. Body mohou být odečteny i za nedodržení formálních požadavků (délka, srozumitelnost, čitelnost výstupů).}.
+\end{enumerate}
+
+
+\section{Řešení úlohy}
+
+\subsection{Metodologie a analýza dat}
+
+Celá úloha byla řešena v prostředí \textsf{R}, které je určeno pro statistické výpočty a následné grafické náhledy [@Rlanguage]. Datový soubor \texttt{du1\_30.sav} byl pomocí balíčku \texttt{foreign} nahrán do prostředí \textsf{R}.
+
+Pro účely průzkumové analýzy data (EDA, \underline{e}xporatory \underline{d}ata \underline{a}nalysis) byly použity grafické nástroje jazyka \textsf{R}.
+
+
+\subsubsection{Odlehlá pozorování}
+
+Pro detekci možných odlehlých pozorování bylo použito zobrazení každé proměnné pomocí boxplotu a dále metoda \textit{inner and outer fences} (\textit{vnitřní a vnější hradby}) [@Chambers1983].
+
+\scriptsize{\setstretch{0.5}
+Je-li $\bm{x} = (x_{1}, x_{2}, \ldots, x_{n})^{T}$, pak suspektně odlehlá v rámci výběru $\bm{x}$ je ta hodnota $x_{i}$, pro kterou platí, že
+
+  \begin{equation}\label{inner_fences}
+    x_{i} \notin \langle Q_{1} - 1,5 \cdot (Q_{3} - Q_{1}); Q_{3} + 1,5 \cdot (Q_{3} - Q_{1}) \rangle,
+  \end{equation}
+  
+kde $i \in \{1, 2, \ldots, n\}$, $n$ je rozsah souboru, $Q_{1}$ a $Q_{3}$ je první a třetí výběrový kvartil nad vektorem dat $\bm{x}$, respektive. Graficky suspektní odlehlost zobrazují i krabicové diagramy pomocí samostatně zobrazených pozorování mimo krabici danou kvartilovým rozpětím. Bylo by možné použít i formální testy hypotéz na jednorozměrnou odlehlost v rámci výběru $\bm{x}$, například Dixonův test nebo Grubbsův test. Nicméně vždy jde jen o podpůrnou metodu, konečné rozhodnutí o odlehlosti vytipované hodnoty má spíše expertní charakter. \par}
+\setstretch{1.0}\normalsize
+
+\subsubsection{Ověřování normality}
+
+Pro ověřování jednorozměrné normality dat spojitých proměnných byly použity histogramy, dále byly vykresleny kvantil-kvantil diagramy porovnávající teoretické a ve výběrech pozorované kvantily normálního rozdělení. Nakonec byly provedeny formální testy normálnosti, a sice Kolgomorův-Smirnovův a Shapiro-Wilkův test.
+
+\scriptsize\setstretch{0.9}
+V histogramech byl počet intervalů $k$, na které byl rozsah hodnot proměnné rozdělen, určen podle \textit{Sturgesova pravidla}, tedy \mbox{$k = \lceil \log_{2} n \rceil + 1$}, kde $n$ je počet pozorování ve výběru proměnné.
+
+Kolmogorovův-Smirnovův jednovýběrový test zkoumá nulovou hypotézu $H_{0}$ o tom, že výběr pochází z předpokládaného teoretického rozdělení, zde normálního, pomocí statistiky $D_{1}$. Vstupem jednovýběrového testu je $k$ tříd testovaného výběru a předpokládané teoretické rozdělení, které je rozděleno do stejného počtu tříd. Nad každou třídou testovaného výběru spočtěme četnosti $n_{1i}$ a nad každou třídou teoretického rozdělení četnosti $n_{2i}$, kde $i \in \{1, 2, \ldots, k\}$. Poté vyčísleme kumulativní četnosti pro výběr $N_{1i} = \sum_{j=1}^{i} n_{1j}$ a pro testované rozdělení $N_{2i} = \sum_{j=1}^{i} n_{2j}$. Hodnocené kritérium $D_{1}$ je pak
+  
+  \begin{equation*}
+    D_{1} = \frac{1}{n} \max_i \lvert N_{1i} - N_{2i} \rvert,
+  \end{equation*}
+  
+kde $n$ je celkový počet prvků výběru. Hodnota kritéria $D_{1}$ se porovná s kritickou hodnotou $D_{1\max}$ pro danou hladinu významnosti $\alpha$; ta je tabelována, případně ji lze pro větší hodnoty $D_{1\max}$ odhadnout podle numerických pravidel, více v [@Birnbaum1951]. Hladina významnosti obou testů byla pro oba výběry vypočtena numericky v prostředí \textsf{R} pomocí funkce \texttt{ks.test()}.
+  
+Shapirův-Wilkův test testuje nulovou hypotézu $H_0$ o tom, že statistický výběr $\bm{x} = (x_{1}, x_{2}, \ldots, x_{n})^{T}$ pochází z normálního rozložení. Testová statistika
+
+  \begin{equation*}
+    W = \frac{\left(\sum_{i=1}^n a_i x_{(i)} \right)^2}{\sum_{i=1}^n (x_i-\bar{x})^2} ,
+  \end{equation*}
+  
+
+kde $x_{(i)}$ je $i$-tá nejmenší hodnota výběru $\bm{x}$, $\bar{x}$ je výběrový průměr a $a_{i}$ jsou konstanty dány Shapiro-Wilkovou metodikou podle [@Royston1982]. Kritické hodnoty pro statistiku $W$ jsou pro danou hladinu významnosti $\alpha$ tabelovány nebo dostupné ve vhodném software. V prostředí \textsf{R} je Shapirův-Wilkův test implementován ve funkci \texttt{shapiro.test()}.
+\setstretch{1.0}\normalsize
+
+\scriptsize\setstretch{0.5}
+Pro ověření vícerozměrné normality byl použit \textsf{R}-kový balíček \texttt{MVN}, který nabízí testy vícerozměrné normality (např. Henze-Zinklerův test, [@Henze1990]) stejně jako matice \mbox{kvantil-kvantil} diagramů pro sdružená vícerozměrná rozložení více proměnných z datasetu. Nakonec byla spočítána i adjustovaná robustní Mahalanobisova distance dle [@Gnanadesikan1972], která pomohla identifikovat pozorování podezřelá z vícerozměrné odlehlosti.
+\setstretch{1.0}\normalsize
+
+
+\subsubsection{Analýza hlavních komponent}
+
+Přestože se používá i jako nástroj extrakce proměnných, zde bude použita jako metoda redukce dimenzionality v systému proměnných, které jsou navzájem relativně hodně korelovány.
+
+\scriptsize\setstretch{0.5}
+Principem analýzy hlavních komponent je přepsání vstupních dat v matici $\bm{X}$ na data $\bm{Y}$ tak, aby $\bm{Y} = \bm{X}\bm{P}$, kde $\bm{P}$ je matice vlastních vektorů kovarianční matice $\Sigma_{\bm{X}}$. Kovarianční matice $\Sigma_{\bm{X}}$ splňuje vztah $\Sigma_{\bm{X}} = \bm{P}\bm{\Lambda}\bm{P}^T$, kde $\bm{\Lambda}$ je diagonální matice obsahující na diagonále vlastní čísla matice $\Sigma_{\bm{X}}$.
+
+Seřadíme-li vlastní vektory v $\bm{P}$ podle velikosti vlastních čísel, dostaneme složky v $\bm{Y}$ setříděné podle rozptylu, čímž lze určit, kolik prvních vlastních vektorů (komponent) již suficientně vysvětlí požadovanou míru variability $\bm{Y}$. Podrobněji pak v [@Hebak2004VicerozmerneStatistickeMetody].
+\setstretch{1.0}\normalsize
+
+
+\subsection{Výsledky}
+
+Dataset \texttt{du1\_30.sav} obsahuje šest numerických spojitých proměnných, a sice \textit{obvod hrudníku}, \textit{obvod břicha}, \textit{obvod stehen}, \textit{obvod předloktí}, \textit{obvod kolene}, \textit{obvod kotníku}, a jednu identifikátorovou proměnnou \textit{id}. Nejsou přítomny žádné chybějící hodnoty. Základní vztahy mezi numerickými proměnnými vidíme v rámci průzkumové analýzy dat na obrázku \ref{scatterplot_matrix}.
+
+\textit{Průzkumová analýza dat.} Z obrázku \ref{scatterplot_matrix} se jeví, že mezi všemi šesti spojitými proměnnými je vztah typu přímé úměry, přesněji s růstem jedné proměnné rostou hodnoty každé další (bez ohledu na kauzalitu).
+
+\textit{Odlehlá pozorování a ověřování normality.} Z tabulky \ref{my_p_values} nahlédneme, že předpoklad normálního rozdělení není u žádné proměnné dobře udržitelný; je to však dáno i převažujícími horními odlehlými hodnotami ve výběrech. Zároveň však z histogramů a především z boxplotů na obrázcích \ref{obvod_hrudniku} až \ref{obvod_kotniku} vidíme, že žádná detekovaná odlehlá hodnota se zbylým hodnotám daného výběru nevymyká řádově. Lze tedy předpokládat, že detekované odlehlé hodnoty pomocí formule (\ref{inner_fences}) nejsou ve skutečnosti hodnoty vzniklé náhodnou chybou (např. měření), ale jde o varianty na hraně normy, popisující skutečnou realitu. Pro další analýzy vyžadující normální rozdělení by bylo nutné zvážit vyloučení odlehlých hodnot či transformace proměnných např. logaritmováním, jak radí [@zvara2013]. Zešikmení zprava (odporující dobré normalitě dat) je pak vždy vidět i na histogramech a na kvantil-kvantil diagramech jako tzv. lehké konce (\textit{light tails}), viz obrázky \ref{obvod_hrudniku} až \ref{obvod_kotniku}.
+
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lrr}
+  \hline
+  proměnná & $p$-hodnota Kolgomorova-Smirnova testu & $p$-hodnota Shapiro-Wilkova testu \\
+  \hline
+  obvod hrudníku & $<$ 0,0001 & $<$ 0,0001 \\ 
+  obvod břicha & $<$ 0,0001 & $<$ 0,0001 \\ 
+  obvod stehen & $<$ 0,0001 & $<$ 0,0001 \\ 
+  obvod předloktí & $<$ 0,0001 & $<$ 0,0001 \\ 
+  obvod kolene & $<$ 0,0001 & $<$ 0,0001 \\ 
+  obvod kotníku & $<$ 0,0001 & 0,0911 \\
+  \hline
+  \end{tabular}
+  \caption{Odhady hladin významnosti ($p$-hodnot) testů normality pro jednotlivé proměnné \label{my_p_values}}
+\end{table}
+
+
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width = 0.8\hsize]{%
+    scatterplot_matrix.eps%
+  }
+  \caption{%
+    Matice bodových diagramů s naznačeným lokálně-váženým (LOESS) regresním trendem (červeně). \label{scatterplot_matrix}%
+  }
+\end{figure}
+
+
+\scriptsize{\setstretch{0.5}
+Na obrázku \ref{obvod_hrudniku} je krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod hrudníku}. Lze nahlédnout, že proměnná obsahuje dle podmínky (\ref{inner_fences}) několik suspektně odlehlých pozorování (vzhledem ke zbylým pozorováním), a sice pozorování s indexy 8, 44, 154, 159 a 161 (horní odlehlé). Protože jde o soubor žen, může jít o hodnoty obvodu hrudníku u žen s tzv. \textit{makromastií}; jde o benigní stav, kdy je objem prsů nadměrně zvětšen po menopauze. \par}
+\setstretch{1.0}\normalsize
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_hrudniku_boxplot.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_hrudniku_histogram.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_hrudniku_qqplot.eps%
+  }
+\end{minipage}
+\caption{Krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod hrudníku} \label{obvod_hrudniku}}
+\end{figure}
+
+
+\scriptsize{\setstretch{0.5}
+Na obrázku \ref{obvod_bricha} je krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod břicha}. Lze nahlédnout, že proměnná obsahuje dle podmínky (\ref{inner_fences}) několik suspektně odlehlých pozorování (vzhledem ke zbylým pozorováním), a sice pozorování s indexy 8, 95, 154 a 161 (horní odlehlé). Může se jednat například o ženy s gynoidním typem obezity v rámci metabolického syndromu. \par}
+\setstretch{1.0}\normalsize
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_bricha_boxplot.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_bricha_histogram.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_bricha_qqplot.eps%
+  }
+\end{minipage}
+\caption{Krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod břicha} \label{obvod_bricha}}
+\end{figure}
+
+\scriptsize{\setstretch{0.5}
+Na obrázku \ref{obvod_stehen} je krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod stehen}. Lze nahlédnout, že proměnná obsahuje dle podmínky (\ref{inner_fences}) několik suspektně odlehlých pozorování (vzhledem ke zbylým pozorováním), a sice pozorování s indexy 2, 22, 44, 115, 154 (horní odlehlé). Může se jednat opět například o ženy s gynoidním typem obezity (typ "hruška") v rámci metabolického syndromu, kdy je somatický tuk ukládán v oblasti boků a stehen. \par}
+\setstretch{1.0}\normalsize
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_stehen_boxplot.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_stehen_histogram.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_stehen_qqplot.eps%
+  }
+\end{minipage}
+\caption{Krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod stehen} \label{obvod_stehen}}
+\end{figure}
+
+
+\scriptsize{\setstretch{0.5}
+Na obrázku \ref{obvod_predlokti} je krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod předloktí}. Lze nahlédnout, že proměnná obsahuje dle podmínky (\ref{inner_fences}) několik suspektně odlehlých pozorování (vzhledem ke zbylým pozorováním), a sice pozorování s indexy 166 (dolní odlehlá), 8, 17, 44, 154, 155, 232 (horní odlehlé). V případě dolní odlehlé může jít o svalovou atrofii při sarkopenii či kachexii onkologickém onemocnění, v případě horních odlehlých se může jednat typicky o ženy po ablaci mammy, kdy poté často odchází k lymfatickým otokům horní končetiny na ipsilaterální straně (tzv. \textit{lymfedém}). \par}
+\setstretch{1.0}\normalsize
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_predlokti_boxplot.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_predlokti_histogram.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_predlokti_qqplot.eps%
+  }
+\end{minipage}
+\caption{Krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod předloktí} \label{obvod_predlokti}}
+\end{figure}
+
+
+\scriptsize{\setstretch{0.5}
+Na obrázku \ref{obvod_kolene} je krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod kolene}. Lze nahlédnout, že proměnná obsahuje dle podmínky (\ref{inner_fences}) několik suspektně odlehlých pozorování (vzhledem ke zbylým pozorováním), a sice pozorování s indexy 44 a 154 (horní odlehlé). Může se jednat opět o ženy s gynoidním typem obezity (typ "hruška") v rámci metabolického syndromu, kdy je somatický tuk ukládán v oblasti boků a stehen (i kolen) se vznikem tzv. tukových polštářů. \par}
+\setstretch{1.0}\normalsize
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_kolene_boxplot.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_kolene_histogram.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_kolene_qqplot.eps%
+  }
+\end{minipage}
+\caption{Krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod kolene} \label{obvod_kolene}}
+\end{figure}
+
+
+\scriptsize{\setstretch{0.5}
+Na obrázku \ref{obvod_kotniku} je krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod kotníku}. Lze nahlédnout, že proměnná obsahuje dle podmínky (\ref{inner_fences}) několik suspektně odlehlých pozorování (vzhledem ke zbylým pozorováním), a sice pozorování s indexy 166 (dolní odlehlá) a 44, 155, 175, 254 (horní odlehlé). V případě dolní odlehlé (opět žena s indexem 166) může jít o všeobecnou kachexii (pokud nejde o náhodnou chybu měření), v případě horních odlehlých se může jednat typicky o ženy s insuficiencí pravého srdce a perimaleolárními otoky, anebo o ženy s žilní insuficiencí (a perimaleolárními otoky). \par}
+\setstretch{1.0}\normalsize
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_kotniku_boxplot.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_kotniku_histogram.eps%
+  }
+\end{minipage}\hfill%
+\begin{minipage}{.30\textwidth}
+  \centering
+  \includegraphics[width = 0.9\hsize]{%
+    obvod_kotniku_qqplot.eps%
+  }
+\end{minipage}
+\caption{Krabicový diagram, histogram a kvantil-kvantil diagram výběrové proměnné \textit{obvod kotníku} \label{obvod_kotniku}}
+\end{figure}
+
+
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width = 1.0\hsize]{%
+    bivariant_normality_matrix.eps%
+  }
+  \caption{%
+    Matice diagramů popisujících dvourozměrnou normalitu. \label{bivariant_normality_matrix}%
+  }
+\end{figure}
+
+Na obrázcích \ref{bivariant_normality_matrix} a \ref{bivariant_normality_perspective_matrix} můžeme vidět, že každé dvě proměnné v souboru jsou relativně hodně korelované (vidíme typické vrstevnicové elipsy na obrázku \ref{bivariant_normality_matrix}; v případě nekorelovanosti by byly mapy spíše kruhové). V tabulce \ref{henze_zinkler_p_values} nahlédneme, že předpoklad vícerozměrné (bivariantní) normality byl Henze-Zinklerovým testem ve všech dvojicích proměnných zamítnut.
+
+\scriptsize{\setstretch{0.5}
+Současně byla spočítána i adjustovaná Mahalanobisova distance a její $\chi^2$ kvantil, čímž bylo identifikován čtrnáct pozorování podezřelých z vícerozměrné odlehlosti. Podle výpočtů jde o ženy s indexy 100, 101, \ldots, 113. Všechna tato pozorování mají adjustovanou robustní Mahalanobisovu distanci větší než 15,79, což je spočtený kritický $\chi^2$ kvantil.\par}
+\setstretch{1.0}\normalsize
+
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width = 1.0\hsize]{%
+    bivariant_normality_perspective_matrix.eps%
+  }
+  \caption{%
+    Matice plastických diagramů popisujících dvourozměrnou normalitu. \label{bivariant_normality_perspective_matrix}%
+  }
+\end{figure}
+
+\textit{Analýza hlavních komponent.} Analýza hlavních komponent byla vzhledem k relativně velkým rozdílům v rozptylech jednotlivých proměnných v souboru provedena na korelační matici, sestavené z těchto proměnných. Jak je vidět z obrázků \ref{bivariant_normality_matrix} a \ref{bivariant_normality_perspective_matrix} i z kovarianční matice (zde neuvádím), proměnné spolu minimálně po dvou korelují, proto má provedení analýzy hlavních komponent ve smyslu redukce dimenzionality smysl.
+
+V tabulce \ref{importance} vidíme, že již samotná první hlavní komponenta vysvětlí 72,4 \% celkové variability, zatímco druhá hlavní komponenta vysvětlí pouze dalších 10,3 \% variability. To ilustruje i obrázek \ref{scree_plot}.
+
+Lze tedy uvažovat dokonce pouze jednu (první) hlavní komponentu za účelem vysvětlení významné části celkové variability a přitom velmi dobré redukce dimenzionality. Eventuálně lze přijmout první dvě hlavní komponenty, které dohromady vysvětlí 82,7 \% celkové variability. V tabulce \ref{rotation} pak vidíme, že lineární koeficienty první hlavní komponenty jsou všechny kladné a relativně velké. To lze chápat tak, že první hlavní komponenta silně pozitivně souvisí se všemi šesti měřenými proměnnými; první hlavní komponentu tak lze interpretovat jako společnou vlastnost všech měřených proměnných a tou se zdá být síla vrstvy podkožního somatického tuku.
+
+Naopak z \ref{rotation} vidíme i to, že druhá hlavní komponenta lineárně pozitivně kombinuje části těla, které nejsou apriorně vybaveny silnou vrstvou podkožního tuku -- předloktí, koleno a kotník. Naopak jde však o místa častých patologií a především podkožních edémů (otoků), zvláště u žen, neboť u nich jsou častější lymfatické edémy (lymfedémy) předloktí, (lýtek) a kolen typicky po některých gynekologických operacích zpravidla pro onkologickou primární příčinu. Jde o lymfedém předloktí a paže po ablaci mammy při karcinomu mammy a lymfedém dolní končetiny při gynekologických -ektomických operacích (hysterektomiích, tj. odnětích dělohy).
+
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lrrrrrr}
+  \hline
+  & ob. hrudníku & ob. břicha & ob. stehen & ob. předloktí & ob. kolene & ob. kotníku \\
+  \hline
+  obvod hrudníku &  & $<$ 0,0001 & $<$ 0,0001 & $<$ 0,0001 & 0,0005 & 0,0215 \\ 
+  obvod břicha & $<$ 0,0001 &  & 0,0001 & 0,0001 & 0,0011 & 0,0057 \\ 
+  obvod stehen & $<$ 0,0001 & 0,0001 &  & $<$ 0,0001 & 0,0002 & 0,0009 \\ 
+  obvod předloktí & $<$ 0,0001 & 0,0001 & $<$ 0,0001 &  & 0,0011 & 0,0216 \\ 
+  obvod kolene & 0,0005 & 0,0011 & 0,0002 & 0,0011 &  & 0,0171 \\ 
+  obvod kotníku & 0,0215 & 0,0057 & 0,0009 & 0,0216 & 0,0171 &  \\ 
+  \hline
+  \end{tabular}
+  \caption{Odhady hladin významnosti ($p$-hodnot) Henze-Zinklerova testu vícerozměrné normality pro jednotlivé proměnné \label{henze_zinkler_p_values}}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lrrrrrr}
+  \hline
+  & PC1 & PC2 & PC3 & PC4 & PC5 & PC6 \\
+  \hline
+  obvod hrudníku & 0,412 & -0,435 & 0,420 & -0,239 & 0,047 & 0,636 \\ 
+  obvod břicha & 0,398 & -0,501 & 0,057 & 0,618 & -0,233 & -0,388 \\ 
+  obvod stehen & 0,420 & -0,047 & -0,647 & 0,047 & 0,625 & 0,095 \\ 
+  obvod předloktí & 0,429 & 0,033 & 0,176 & -0,637 & 0,038 & -0,614 \\ 
+  obvod kolene & 0,420 & 0,328 & -0,400 & -0,082 & -0,702 & 0,238 \\ 
+  obvod kotníku & 0,368 & 0,670 & 0,458 & 0,382 & 0,242 & 0,043 \\ 
+  \hline
+  \end{tabular}
+  \caption{Lineární koeficienty hlavních komponent pro jednotlivé proměnné (PC$i$ je $i$-tá hlavní komponenta pro $\forall i \in \{1, 2, \ldots, 6\}$) \label{rotation}}
+\end{table}
+
+
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lrrrrrr}
+  \hline
+  & PC1 & PC2 & PC3 & PC4 & PC5 & PC6 \\
+  \hline
+  směrodatná odchylka & 2.084 & 0.786 & 0.601 & 0.562 & 0.451 & 0.397 \\ 
+  proporce vysvětlené variability & 0.724 & 0.103 & 0.060 & 0.053 & 0.034 & 0.026 \\ 
+  kumulativní proporce vysvětlené variability & 0.724 & 0.827 & 0.887 & 0.940 & 0.974 & 1.000 \\ 
+  \hline
+  \end{tabular}
+  \caption{Vlastnosti hlavních komponent (PC$i$ je $i$-tá hlavní komponenta pro $\forall i \in \{1, 2, \ldots, 6\}$) \label{importance}}
+\end{table}
+
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width = 0.7\hsize]{%
+    scree_plot.eps%
+  }
+  \caption{%
+    Diagram popisující podíl vysvětlené variability prostřednictvím dané hlavní komponenty\label{scree_plot}%
+  }
+\end{figure}
+
+
+\subsection{Závěr}
+
+Byla ověřena jedno- i vícerozměrná normálnost vstupních dat. Předpoklad normality by byl u všech měřených proměnných obtížně udržitelný, pokud by data vstoupila do metody citlivé na normální rozložení. Pak by bylo nutné data transformovat, např. logaritmováním, eventuálně použít robustní protějšek citlivé metody.
+
+Byla identifikována pozorování podezřelé z odlehlosti (od zbylých hodnot). Velikost těchto pozorování však nebyla nápadně jiná než ve zbytku výběru, proto se pravděpodobně u těchto pozorování jedná jen o širší variantu normy.
+
+Analýza hlavních komponent ukázala možnost redukce systému proměnných na jednu až dvě lineární kombinace (komponenty) původních proměnných, aniž by došlo k významné ztrátě informace.
+
+
+\section{Apendix}
+
+Zde je uveden kód v jazyce \textsf{R}, ve kterém byly zpracovávány veškeré výpočty a rovněž generovány diagramy.
+
+\bigskip
+
+\scriptsize
+```{r, echo = TRUE, eval = FALSE}
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+## instaluji a loaduji balíčky ------------------------------------------------
+
+invisible(
+    lapply(c(
+            "xtable",
+            "openxlsx",
+            "foreign",
+            "MVN"
+        ),
+        function(package){
+            
+            if(!(package %in% rownames(installed.packages()))){
+                
+                install.packages(
+                    package,
+                    dependencies = TRUE,
+                    repos = "http://cran.us.r-project.org"
+                )
+                
+            }
+            
+            library(package, character.only = TRUE)
+            
+        }
+    )
+)
+
+
+## ----------------------------------------------------------------------------
+
+###############################################################################
+
+## nastavuji handling se zipováním v R ----------------------------------------
+
+Sys.setenv(R_ZIPCMD = "C:/Rtools/bin/zip") 
+
+
+## ----------------------------------------------------------------------------
+
+###############################################################################
+
+## nastavuji pracovní složku --------------------------------------------------
+
+while(!"__domaci_ukol_1__.R" %in% dir()){
+    setwd(choose.dir())
+}
+
+mother_working_directory <- getwd()
+
+
+## ----------------------------------------------------------------------------
+
+###############################################################################
+
+## vytvářím posložky pracovní složky ------------------------------------------
+
+setwd(mother_working_directory)
+
+for(my_subdirectory in c("vstupy", "vystupy")){
+    
+    if(!file.exists(my_subdirectory)){
+        
+        dir.create(file.path(
+            
+            mother_working_directory, my_subdirectory
+            
+        ))
+        
+    }
+    
+}
+
+
+## ----------------------------------------------------------------------------
+
+###############################################################################
+
+## loaduji data ---------------------------------------------------------------
+
+setwd(
+    paste(mother_working_directory, "vstupy", sep = "/")
+)
+
+my_data <- data.frame(
+    
+    setNames(
+        object = read.spss(    
+            file = "du1_30.sav",
+            to.data.frame = TRUE
+        ),
+        nm = c(
+            "id",
+            "obvod hrudníku",
+            "obvod břicha",
+            "obvod stehen",
+            "obvod předloktí",
+            "obvod kolene",
+            "obvod kotníku"
+        )
+    ),
+    check.names = FALSE
+    
+)
+
+setwd(mother_working_directory)
+
+
+## ----------------------------------------------------------------------------
+
+###############################################################################
+
+## Exploratory Data Analysis --------------------------------------------------
+
+#### nejdříve vytvářím diagram závislostí jednotlivých proměnných mezi
+#### sebou --------------------------------------------------------------------
+
+setwd(paste(mother_working_directory, "vystupy", sep = "/"))
+
+cairo_ps(
+    file = "scatterplot_matrix.eps",
+    width = 8,
+    height = 8,
+    pointsize = 14
+)
+
+par(mar = c(1.1, 1.1, 0.1, 0.1))
+
+
+pairs(
+    my_data[, grepl("obvod", colnames(my_data))],
+    panel = "panel.smooth"
+)
+
+dev.off()
+
+setwd(mother_working_directory)
+
+
+#### --------------------------------------------------------------------------
+
+#### nyní vytvářím pro každou spojitou proměnnou boxplot, histogram
+#### a QQ-plot ----------------------------------------------------------------
+
+setwd(paste(mother_working_directory, "vystupy", sep = "/"))
+
+for(my_variable in colnames(my_data)[grepl("obvod", colnames(my_data))]){
+    
+    #### boxploty -------------------------------------------------------------
+    
+    cairo_ps(
+        file = paste(
+            gsub(
+                " ",
+                "_",
+                iconv(my_variable, to = "ASCII//TRANSLIT")
+            ),
+            "_boxplot.eps",
+            sep = ""
+        ),
+        width = 5,
+        height = 5,
+        pointsize = 18
+    )
+    
+    par(mar = c(4.1, 4.1, 0.5, 0.3))
+    
+    boxplot(
+        x = my_data[, my_variable],
+        col = "lightgrey",
+        xlab = "soubor žen",
+        ylab = paste(
+            my_variable,
+            " [cm]",
+            sep = ""
+        )
+    )
+    
+    dev.off()
+    
+    
+    #### QQ-ploty -------------------------------------------------------------
+    
+    cairo_ps(
+        file = paste(
+            gsub(
+                " ",
+                "_",
+                iconv(my_variable, to = "ASCII//TRANSLIT")
+            ),
+            "_qqplot.eps",
+            sep = ""
+        ),
+        width = 5,
+        height = 5,
+        pointsize = 18
+    )
+    
+    par(mar = c(4.1, 4.1, 0.5, 0.3))
+    
+    qqnorm(
+        y = my_data[, my_variable],
+        xlab = "teoretické kvantily",
+        ylab = "výběrové kvantily",
+        main = ""
+    )
+    
+    qqline(
+        y = my_data[, my_variable],
+        col = "red"
+    )
+    
+    dev.off()
+    
+    
+    #### histogramy -----------------------------------------------------------
+    
+        cairo_ps(
+        file = paste(
+            gsub(
+                " ",
+                "_",
+                iconv(my_variable, to = "ASCII//TRANSLIT")
+            ),
+            "_histogram.eps",
+            sep = ""
+        ),
+        width = 5,
+        height = 5,
+        pointsize = 18
+    )
+    
+    par(mar = c(4.1, 4.1, 0.5, 0.3))
+    
+    hist(
+        x = my_data[, my_variable],
+        col = "lightgrey",
+        xlab = paste(
+            my_variable,
+            " [cm]",
+            sep = ""
+        ),
+        ylab = "absolutní četnosti",
+        main = ""
+    )
+    
+    dev.off()
+    
+}
+
+setwd(mother_working_directory)
+
+
+#### do konzole tisknu, která pozorování dané proměnné jsou suspektně
+#### odlehlá ------------------------------------------------------------------
+
+for(my_variable in colnames(my_data)[grepl("obvod", colnames(my_data))]){
+    
+    print("################################################")
+    
+    print(
+        paste(
+            "Suspektně odlehlé proměnné '",
+            my_variable,
+            "':",
+            sep = ""
+        )
+    )
+    
+    print("-- dolní odlehlé:")
+    print(
+        which(
+            my_data[, my_variable] < quantile(
+                my_data[, my_variable],
+                probs = 1/4,
+                names = FALSE
+            ) - 1.5 * (
+                quantile(
+                    my_data[, my_variable],
+                    probs = 3/4,
+                    names = FALSE
+                ) - quantile(
+                    my_data[, my_variable],
+                    probs = 1/4,
+                    names = FALSE
+                )
+            )
+        )
+    )
+    
+    print("-- horní odlehlé:")
+    print(
+        which(
+            my_data[, my_variable] > quantile(
+                my_data[, my_variable],
+                probs = 3/4,
+                names = FALSE
+            ) + 1.5 * (
+                quantile(
+                    my_data[, my_variable],
+                    probs = 3/4,
+                    names = FALSE
+                ) - quantile(
+                    my_data[, my_variable],
+                    probs = 1/4,
+                    names = FALSE
+                )
+            )
+        )
+    )
+    
+}
+
+
+#### počítám p-hodnoty Kolmogorova-Smirnova testu a Shapiro-Wilkova testu -----
+
+my_p_values <- NULL
+
+for(my_variable in colnames(my_data)[grepl("obvod", colnames(my_data))]){
+    
+    my_p_values <- rbind(
+        
+        my_p_values,
+        c(
+            suppressWarnings(
+                ks.test(my_data[, my_variable], y = "pnorm")$p.value
+            ),
+            shapiro.test(my_data[, my_variable])$p.value
+        )
+        
+    )
+    
+    rownames(my_p_values)[
+        dim(my_p_values)[1]
+    ] <- my_variable
+    
+    colnames(my_p_values) <- c(
+        "p_level_kolmogorov",
+        "p_level_shapiro"
+    )
+    
+}
+
+print(
+    xtable(
+        my_p_values,
+        align = rep("", ncol(my_p_values) + 1),
+        digits = 4
+    ),
+    floating = FALSE,
+    tabular.environment = "tabular",
+    hline.after = NULL,
+    include.rownames = TRUE,
+    include.colnames = TRUE
+)
+
+
+#### vykresluji contour diagramy bivariantní normality ------------------------
+
+setwd(paste(mother_working_directory, "vystupy", sep = "/"))
+
+cairo_ps(
+    file = "bivariant_normality_matrix.eps",
+    width = 10,
+    height = 10,
+    pointsize = 12
+)
+
+par(mar = c(4.1, 4.1, 2.1, 2.1))
+par(mfrow = c(6, 6))
+
+for(i in 2:7){
+    
+    for(j in 2:7){
+        
+        if(i == j){
+            
+            plot(
+                0,
+                type = "n",
+                axes = FALSE,
+                ann = FALSE
+            )
+            
+        }else{
+            
+            mvnPlot(
+                hzTest(my_data[, c(i, j)]),
+                type = "contour",
+                default = TRUE
+            )
+            
+        }
+        
+    }
+    
+}
+
+dev.off()
+
+
+cairo_ps(
+    file = "bivariant_normality_perspective_matrix.eps",
+    width = 10,
+    height = 10,
+    pointsize = 14
+)
+
+par(mar = c(0.1, 0.1, 0.1, 0.1))
+par(mfrow = c(6, 6))
+
+for(i in 2:7){
+    
+    for(j in 2:7){
+        
+        if(i == j){
+            
+            plot(
+                0,
+                type = "n",
+                axes = FALSE,
+                ann = FALSE
+            )
+            
+        }else{
+            
+            mvnPlot(
+                hzTest(my_data[, c(i, j)]),
+                type = "persp",
+                default = TRUE,
+                ylab = "",
+                yaxt='n'
+            )
+            
+        }
+        
+    }
+    
+}
+
+dev.off()
+
+setwd(mother_working_directory)
+
+
+#### zkoumám outliery ---------------------------------------------------------
+
+my_outliers <- mvOutlier(
+    my_data[, grepl("obvod", colnames(my_data))],
+    qqplot = TRUE,
+    method = "adj.quan",
+    label = TRUE
+)
+
+rownames(my_outliers$newData)[as.logical(my_outliers$outlier[, "Outlier"])]
+    # které indexy jsou vícerozměrně odlehlé?
+    
+my_outliers$outlier[, "Mahalanobis Distance"][
+    as.logical(my_outliers$outlier[, "Outlier"])
+]   # jak velké mají Mahalanobisovy distance
+
+
+#### vytvářím tabulku p-hodnot Henze-Zirklerova testu -------------------------
+
+henze_zinkler_p_values <- matrix(rep(0, 6 * 6), nrow = 6)
+
+for(i in 2:7){
+    
+    for(j in 2:7){
+        
+        if(i == j){
+            
+            henze_zinkler_p_values[i - 1, j - 1] <- 1.0
+            
+        }else{
+            
+            henze_zinkler_p_values[i - 1, j - 1] <- attr(
+                hzTest(my_data[, c(i, j)]), "p.value"
+            )
+            
+        }
+        
+    }
+    
+}
+
+colnames(henze_zinkler_p_values) <- colnames(my_data)[
+    grepl("obvod", colnames(my_data))
+]
+
+rownames(henze_zinkler_p_values) <- colnames(my_data)[
+    grepl("obvod", colnames(my_data))
+]
+
+print(
+    xtable(
+        henze_zinkler_p_values,
+        align = rep("", ncol(henze_zinkler_p_values) + 1),
+        digits = 4
+    ),
+    floating = FALSE,
+    tabular.environment = "tabular",
+    hline.after = NULL,
+    include.rownames = TRUE,
+    include.colnames = TRUE
+)
+
+
+## ----------------------------------------------------------------------------
+
+###############################################################################
+
+## zkouším PCA ----------------------------------------------------------------
+
+#### kovarianční matice -------------------------------------------------------
+
+cov(my_data[, grepl("obvod", colnames(my_data))])
+
+
+#### modeluji PCA -------------------------------------------------------------
+
+my_pca <- prcomp(
+    my_data[, grepl("obvod", colnames(my_data))],
+    center = TRUE,
+    scale. = TRUE
+)
+
+
+#### tisknu sumář PCA ---------------------------------------------------------
+
+summary(my_pca)
+
+my_pca[["rotation"]]
+
+print(
+    xtable(
+        my_pca[["rotation"]],
+        align = rep("", ncol(my_pca[["rotation"]]) + 1),
+        digits = 3
+    ),
+    floating = FALSE,
+    tabular.environment = "tabular",
+    hline.after = NULL,
+    include.rownames = TRUE,
+    include.colnames = TRUE
+)
+
+print(
+    xtable(
+        summary(my_pca)[["importance"]],
+        align = rep("", ncol(summary(my_pca)[["importance"]]) + 1),
+        digits = 3
+    ),
+    floating = FALSE,
+    tabular.environment = "tabular",
+    hline.after = NULL,
+    include.rownames = TRUE,
+    include.colnames = TRUE
+)
+
+
+#### tisknu scree-plot --------------------------------------------------------
+
+#screeplot(my_pca)
+
+setwd(paste(mother_working_directory, "vystupy", sep = "/"))
+
+cairo_ps(
+    file = "scree_plot.eps",
+    width = 8,
+    height = 5,
+    pointsize = 12
+)
+
+par(mar = c(4.1, 4.1, 0.5, 0.3))
+
+plot(
+    summary(my_pca)[["importance"]]["Proportion of Variance", ],
+    type = "b",
+    xlab = "číslo hlavní komponenty",
+    ylab = "podíl vysvětlené variability"
+)
+
+dev.off()
+
+setwd(mother_working_directory)
+
+
+## ----------------------------------------------------------------------------
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+
+
+
+
+
+
+
+```
+\normalsize
+
+
+\section{Reference}
+
+\printbibliography
+
+
+
+
+
