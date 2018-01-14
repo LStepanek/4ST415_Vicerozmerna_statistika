@@ -246,7 +246,7 @@ cairo_ps(
     pointsize = 12
 )
 
-par(mar = c(4.1, 4.1, 0.5, 0.3))
+par(mar = c(4.1, 4.1, 0.7, 0.3))
 
 plot(
     summary(prcomp(my_data))[["importance"]]["Proportion of Variance", ],
